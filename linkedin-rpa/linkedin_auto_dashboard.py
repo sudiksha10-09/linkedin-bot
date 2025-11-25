@@ -10,7 +10,7 @@ from queue import Queue
 from flask import Flask, render_template_string, request, jsonify
 from playwright.sync_api import sync_playwright
 
-# Setup OpenAI (Optional - leave blank if you don't have a key)
+# Setup OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 try:
     from openai import OpenAI
@@ -31,7 +31,7 @@ COMMAND_QUEUE = Queue()
 
 app = Flask(__name__)
 
-# --- HTML DASHBOARD (Identical to before) ---
+# --- HTML DASHBOARD (Same as before) ---
 HTML_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -235,8 +235,9 @@ def generate_ai_comment(text, keyword):
     except: return f"Great insights on {keyword}."
 
 def bot_logic(email, password, keyword, max_posts, filters):
-    with sync_playwright() as p:
-        try:
+    browser = None
+    try:
+        with sync_playwright() as p:
             # HEADLESS MUST BE TRUE FOR CLOUD HOSTING
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(
@@ -313,11 +314,11 @@ def bot_logic(email, password, keyword, max_posts, filters):
                     except Exception as e: continue
                 time.sleep(1)
 
-        except Exception as e:
-            log(f"Error: {e}")
-        finally:
-            browser.close()
-            BOT_STATE["is_running"] = False
+    except Exception as e:
+        log(f"Error: {e}")
+    finally:
+        if browser: browser.close()
+        BOT_STATE["is_running"] = False
 
 def process_queue(page):
     while not COMMAND_QUEUE.empty():
