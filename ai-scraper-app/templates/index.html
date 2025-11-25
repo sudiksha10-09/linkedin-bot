@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Data Extractor</title>
+    <style>
+        /* Simple CSS for layout */
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        label, input, textarea, button { display: block; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+        button { background-color: #4CAF50; color: white; padding: 10px; border: none; cursor: pointer; }
+        #output { background-color: #f4f4f4; padding: 15px; border: 1px solid #ddd; white-space: pre-wrap; }
+        .loading { display: none; color: blue; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🤖 AI Web Content Extractor</h2>
+        <form id="extractionForm">
+            <label for="url">URL to Scrape:</label>
+            <input type="url" id="url" required value="https://en.wikipedia.org/wiki/Large_language_model">
+
+            <label for="instruction">Extraction Instruction (e.g., "Extract the first paragraph and the main title, return as JSON with keys 'title' and 'summary'"):</label>
+            <textarea id="instruction" rows="4" required>Extract the main title and the first paragraph of the article. Return the result as a single JSON object with keys 'title' and 'summary'.</textarea>
+
+            <button type="submit">Extract Data</button>
+        </form>
+
+        <p class="loading" id="loadingMessage">Processing... this may take a moment.</p>
+
+        <h3>Extracted JSON Data:</h3>
+        <pre id="output">Submit a URL to see the extracted data...</pre>
+    </div>
+
+    <script>
+        document.getElementById('extractionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const url = document.getElementById('url').value;
+            const instruction = document.getElementById('instruction').value;
+            const outputElement = document.getElementById('output');
+            const loadingMessage = document.getElementById('loadingMessage');
+
+            // 1. Show loading state
+            outputElement.textContent = '';
+            loadingMessage.style.display = 'block';
+
+            try {
+                // 2. Send data to the Flask backend
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url, instruction })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                // 3. Display the result
+                if (result.error) {
+                    outputElement.textContent = 'Error: ' + result.error;
+                } else {
+                    // Use JSON.stringify for clean, formatted output
+                    outputElement.textContent = JSON.stringify(result.data, null, 2);
+                }
+
+            } catch (error) {
+                console.error('Extraction failed:', error);
+                outputElement.textContent = 'An error occurred during extraction. See console for details.';
+            } finally {
+                // 4. Hide loading state
+                loadingMessage.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

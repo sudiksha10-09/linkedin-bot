@@ -1,0 +1,9 @@
+# Node
+node_modules/
+
+# Env / secrets
+.env
+
+# Logs / generated data
+*.log
+linkedin-rpa/linkedin_comments_log.csv
