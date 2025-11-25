@@ -175,7 +175,7 @@ def bot_logic(cookie, keyword):
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
             
-            # --- THE MAGIC PART: INJECT USER'S COOKIE ---
+            # --- INJECT USER'S COOKIE ---
             log("🍪 Using provided session cookie...")
             context.add_cookies([{
                 "name": "li_at",
@@ -186,13 +186,21 @@ def bot_logic(cookie, keyword):
             
             page = context.new_page()
             
-            log("Navigating to LinkedIn...")
-            page.goto("https://www.linkedin.com/")
-            time.sleep(3)
+            log("Navigating to LinkedIn (60s timeout)...")
+            
+            # --- THE FIX IS HERE ---
+            # 1. timeout=60000: Give it 60 seconds instead of 30
+            # 2. wait_until="domcontentloaded": Don't wait for images, just text/structure
+            try:
+                page.goto("https://www.linkedin.com/", timeout=60000, wait_until="domcontentloaded")
+            except Exception as e:
+                log("⚠️ Page load took a while, but continuing...")
+
+            time.sleep(5) # Give it a moment to settle
 
             # Check if it worked
             if "login" in page.url and "feed" not in page.url:
-                 log("❌ Login Failed. The cookie might be expired or invalid.")
+                 log("❌ Login Failed. The cookie is invalid or expired.")
                  return
 
             log(f"✅ Success! Logged in without password.")
@@ -200,7 +208,7 @@ def bot_logic(cookie, keyword):
 
             # Simple Search Action
             search_url = f"https://www.linkedin.com/search/results/content/?keywords={urllib.parse.quote(keyword)}"
-            page.goto(search_url)
+            page.goto(search_url, timeout=60000, wait_until="domcontentloaded")
             time.sleep(5)
             
             # Simple Scroll Loop
@@ -217,7 +225,6 @@ def bot_logic(cookie, keyword):
     finally:
         if browser: browser.close()
         BOT_STATE["is_running"] = False
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
