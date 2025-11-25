@@ -19,8 +19,6 @@ except:
     openai_client = None
 
 # --- Global State ---
-# We track state per "session" if possible, but for simplicity here we keep one global state
-# In a real production app, you would need a database.
 BOT_STATE = {
     "is_running": False,
     "status": "Idle",
@@ -39,52 +37,49 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LinkedIn Cloud Commander (Multi-User)</title>
+    <title>LinkedIn Stealth Commander</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background: #f3f2ef; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; display: grid; gap: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
         .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #0a66c2; text-align: center; margin-top: 0; }
-        label { display: block; margin-top: 12px; font-weight: 600; font-size: 0.85em; color: #555; }
+        h1 { color: #0a66c2; text-align: center; }
+        label { display: block; margin-top: 15px; font-weight: 600; color: #555; }
         input[type="text"], input[type="password"] { 
-            width: 100%; padding: 10px; margin-top: 5px; 
+            width: 100%; padding: 12px; margin-top: 5px; 
             border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; 
         }
-        .help-text { font-size: 0.8em; color: #666; margin-top: 5px; background: #eef3f8; padding: 10px; border-radius: 5px; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 20px; font-size: 1em; transition: 0.2s; }
+        .help-text { font-size: 0.85em; color: #666; background: #eef3f8; padding: 10px; border-radius: 5px; margin-top: 5px;}
+        button { width: 100%; padding: 14px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 20px; font-size: 1em; }
         .btn-start { background: #0a66c2; color: white; }
         .btn-stop { background: #d11124; color: white; }
-        .log-box { background: #1b1f23; color: #4caf50; height: 150px; overflow-y: auto; padding: 15px; font-family: monospace; font-size: 0.8em; border-radius: 6px; margin-top: 20px; }
+        .log-box { background: #1b1f23; color: #00ff00; height: 250px; overflow-y: auto; padding: 15px; font-family: monospace; font-size: 0.85em; border-radius: 6px; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card">
-            <h1>LinkedIn Cloud Commander</h1>
+            <h1>LinkedIn Stealth Commander</h1>
             
             <div id="setup-form">
                 <label>Target Keyword</label>
-                <input type="text" id="keyword" placeholder="e.g. Generative AI" value="Software Engineering">
+                <input type="text" id="keyword" placeholder="e.g. Hiring Software Engineers" value="Recruitment">
 
                 <label>Your LinkedIn "li_at" Cookie</label>
-                <input type="password" id="cookie" placeholder="Paste long cookie string here...">
+                <input type="password" id="cookie" placeholder="Paste your li_at cookie string here...">
                 <div class="help-text">
-                    <b>How to get this?</b><br>
-                    1. Go to LinkedIn.com (make sure you are logged in).<br>
-                    2. Right-Click > Inspect > Application Tab > Cookies.<br>
-                    3. Copy the value of <b>li_at</b> and paste it here.
+                    <b>Desktop Instructions:</b> Open LinkedIn > Right Click > Inspect > Application > Cookies > Copy "li_at" value.
                 </div>
                 
-                <button onclick="startBot()" class="btn-start" id="startBtn">🚀 Launch Bot</button>
+                <button onclick="startBot()" class="btn-start" id="startBtn">🚀 Start Bot</button>
             </div>
 
             <div id="stop-area" style="display:none;">
-                <p>Status: <b id="status-text" style="color:#0a66c2;">Running...</b></p>
+                <p>Status: <b id="status-text">Running...</b></p>
                 <button onclick="stopBot()" class="btn-stop">Stop Session</button>
             </div>
 
-            <div class="log-box" id="log-container">Waiting for user inputs...</div>
+            <div class="log-box" id="log-container">Ready. Waiting for inputs...</div>
         </div>
     </div>
 
@@ -93,7 +88,7 @@ HTML_TEMPLATE = """
             const keyword = document.getElementById('keyword').value;
             const cookie = document.getElementById('cookie').value;
             
-            if(!cookie) { alert("You must provide the li_at cookie!"); return; }
+            if(!cookie) { alert("Cookie is required!"); return; }
 
             document.getElementById('startBtn').disabled = true;
             document.getElementById('startBtn').innerText = "Starting...";
@@ -119,7 +114,7 @@ HTML_TEMPLATE = """
                 document.getElementById('setup-form').style.display = 'block';
                 document.getElementById('stop-area').style.display = 'none';
                 document.getElementById('startBtn').disabled = false;
-                document.getElementById('startBtn').innerText = "🚀 Launch Bot";
+                document.getElementById('startBtn').innerText = "🚀 Start Bot";
             }
             
             const logBox = document.getElementById('log-container');
@@ -143,9 +138,8 @@ def start_route():
     data = request.json
     if not BOT_STATE["is_running"]:
         BOT_STATE["is_running"] = True
-        BOT_STATE["logs"] = ["Initializing..."]
+        BOT_STATE["logs"] = ["Initializing Stealth Agent..."]
         
-        # WE GET THE COOKIE FROM THE USER NOW, NOT THE SERVER
         user_cookie = data.get('cookie')
         user_keyword = data.get('keyword')
         
@@ -169,14 +163,29 @@ def bot_logic(cookie, keyword):
     browser = None
     try:
         with sync_playwright() as p:
-            # HEADLESS TRUE FOR CLOUD
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            log("⚙️ Launching Stealth Browser...")
+            # STEALTH ARGUMENTS to bypass "Robot" detection
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu'
+                ]
             )
             
-            # --- INJECT USER'S COOKIE ---
-            log("🍪 Using provided session cookie...")
+            # Use a real Windows User Agent
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                viewport={"width": 1280, "height": 720},
+                ignore_https_errors=True
+            )
+            
+            # Inject Cookie
+            log("🍪 Injecting Session Cookie...")
             context.add_cookies([{
                 "name": "li_at",
                 "value": cookie,
@@ -186,45 +195,63 @@ def bot_logic(cookie, keyword):
             
             page = context.new_page()
             
-            log("Navigating to LinkedIn (60s timeout)...")
-            
-            # --- THE FIX IS HERE ---
-            # 1. timeout=60000: Give it 60 seconds instead of 30
-            # 2. wait_until="domcontentloaded": Don't wait for images, just text/structure
+            # STEP 1: Go to Feed (Warm up)
+            log("🌍 Navigating to LinkedIn Feed (90s timeout)...")
             try:
-                page.goto("https://www.linkedin.com/", timeout=60000, wait_until="domcontentloaded")
+                # wait_until='domcontentloaded' prevents waiting for slow tracking scripts
+                page.goto("https://www.linkedin.com/feed/", timeout=90000, wait_until="domcontentloaded")
             except Exception as e:
-                log("⚠️ Page load took a while, but continuing...")
+                log(f"⚠️ Initial load slow: {str(e)[:50]}... (Continuing)")
 
-            time.sleep(5) # Give it a moment to settle
+            time.sleep(5)
 
-            # Check if it worked
-            if "login" in page.url and "feed" not in page.url:
-                 log("❌ Login Failed. The cookie is invalid or expired.")
+            # Check if login worked
+            if "login" in page.url or "signup" in page.url:
+                 log("❌ Login Failed. Your 'li_at' cookie is expired or incorrect.")
+                 log("👉 Please refresh your LinkedIn tab and get a new cookie.")
                  return
 
-            log(f"✅ Success! Logged in without password.")
-            log(f"🔎 Searching for: {keyword}...")
-
-            # Simple Search Action
-            search_url = f"https://www.linkedin.com/search/results/content/?keywords={urllib.parse.quote(keyword)}"
-            page.goto(search_url, timeout=60000, wait_until="domcontentloaded")
-            time.sleep(5)
+            log(f"✅ Login Verified! Connected to LinkedIn.")
             
-            # Simple Scroll Loop
+            # STEP 2: Go to Search
+            log(f"🔎 Searching for: {keyword}...")
+            search_url = f"https://www.linkedin.com/search/results/content/?keywords={urllib.parse.quote(keyword)}&sortBy=%22date_posted%22"
+            
+            try:
+                page.goto(search_url, timeout=60000, wait_until="domcontentloaded")
+            except Exception as e:
+                 log(f"⚠️ Search load slow: {str(e)[:50]}...")
+
+            time.sleep(5)
+
+            # STEP 3: Scroll Loop
             for i in range(5):
                 if not BOT_STATE["is_running"]: break
-                log(f"Processing page {i+1}...")
-                page.evaluate("window.scrollBy(0, 500)")
-                time.sleep(2)
+                log(f"📜 Scanning Page {i+1}...")
                 
-            log("Task complete.")
+                # Check for Auth Wall
+                if "auth/wall" in page.url or "challenge" in page.url:
+                    log("❌ LinkedIn Security Check triggered.")
+                    break
+                
+                # Scroll down
+                try:
+                    page.evaluate("window.scrollBy(0, 800)")
+                except:
+                    pass
+                
+                time.sleep(3)
+                
+            log("✅ Session Finished Successfully.")
 
     except Exception as e:
-        log(f"Error: {e}")
+        log(f"❌ Critical Error: {e}")
     finally:
-        if browser: browser.close()
+        if browser: 
+            try: browser.close()
+            except: pass
         BOT_STATE["is_running"] = False
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
